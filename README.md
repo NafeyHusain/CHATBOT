@@ -1,3 +1,0 @@
-# CHATBOT
-# TextClassification
-# CYBER-SAFE-CHATTING-APPLICATION

@@ -2,7 +2,6 @@ const chatForm = document.getElementById("chat-form");
 const chatMessages = document.querySelector(".chat-messages");
 const roomName = document.getElementById("room-name");
 const userList = document.getElementById("users");
-
 // Get username and room from URL
 const { username, room } = Qs.parse(location.search, {
     ignoreQueryPrefix: true,
@@ -21,8 +20,9 @@ socket.on("roomUsers", ({ room, users }) => {
 
 // Message from server
 socket.on("message", (message) => {
-    console.log(message);
+    classifyText(message);
     outputMessage(message);
+    // predict(message.text);
 
     // Scroll down
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -88,3 +88,82 @@ document.getElementById("leave-btn").addEventListener("click", () => {
     } else {
     }
 });
+
+var value = "";
+let hashMap = new Map([]);
+
+const threshold = 0.85;
+let occurence;
+let limit;
+
+function classifyText(message) {
+    console.log(message);
+    toxicity.load(threshold).then((model) => {
+        const sentence = message.text;
+        model.classify(sentence).then((predictions) => {
+            console.log(predictions);
+            value = predictions[6].results[0].match;
+            console.log(value);
+            // for (let i = 0; i < predictions.length; i++) {}
+
+            if (value) {
+                if (hashMap.has(message.username)) {
+                    console.log(hashMap);
+                    occurence = hashMap.get(message.username);
+                    hashMap.set(message.username, occurence + 1);
+                    limit = hashMap.get(message.username);
+                    if (limit > 1) {
+                        socket.emit("alert", message);
+                    }
+                } else {
+                    hashMap.set(message.username, 1);
+                }
+            }
+        });
+    });
+}
+socket.on("event", function (user) {
+    if (confirm("DO you want to block the user!")) {
+        socket.emit("approvedToBlock", user);
+    } else {
+        txt = "You pressed Cancel!";
+        console.log(txt);
+    }
+});
+socket.on("block", function (user) {
+    window.location = "../index.html";
+    socket.emit("disconnect");
+});
+
+const classify = async (inputs) => {
+    const results = await model.classify(inputs);
+    return inputs.map((d, i) => {
+        const obj = { text: d };
+        results.forEach((classification) => {
+            obj[classification.label] = classification.results[i].match;
+        });
+        return obj;
+    });
+};
+
+const predict = async (inputs) => {
+    model = await toxicity.load();
+    labels = model.model.outputNodes.map((d) => d.split("/")[0]);
+    const predictions = classify([inputs])
+        .then((d) => {
+            console.log(d);
+            return d;
+        })
+        .catch((e) => {
+            console.log("unsuccesfull Prediction");
+        });
+
+    // document.querySelector("#classify-new").addEventListener("submit", (e) => {
+    //     const text = document.querySelector("#classify-new-text-input").value;
+
+    //     // Prevent submitting the form which would cause a page reload.
+    //     e.preventDefault();
+    // });
+};
+
+// predict();
